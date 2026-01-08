@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div style="text-align: center;">
+    <h2>Create an Account</h2>
+</div>
+
+<form method="POST">
+    <label>Username</label>
+    <input type="text" name="username" placeholder="Choose a Username" required>
+    
+    <label>Password</label>
+    <input type="password" name="password" placeholder="Choose a Password" required>
+    
+    <button type="submit" style="margin-top: 20px;">Register</button>
+</form>
+
+<p style="text-align: center; margin-top: 15px;">
+    Already have an account? <a href="{{ url_for('login') }}">Login here</a>
+</p>
+{% endblock %}

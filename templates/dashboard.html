@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="nav">
+    <span>Welcome, <b>{{ user.username }}</b></span>
+    <a href="{{ url_for('logout') }}">Logout</a>
+</div>
+
+<div style="background: #444; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+    <strong>Your API Key:</strong> <code style="color: #ffdd57; font-size: 1.2em;">{{ user.api_key }}</code>
+    <p style="font-size: 0.9em; margin-top: 5px; color: #aaa;">Copy this key to your desktop app configuration to enable syncing.</p>
+</div>
+
+<h3>Live Log History (Latest 100)</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Time</th>
+            <th>App Name</th>
+            <th>Down (KB/s)</th>
+            <th>Up (KB/s)</th>
+            <th>Src -> Dst</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td>{{ log.timestamp.strftime('%H:%M:%S') }}</td>
+            <td>{{ log.app_name }}</td>
+            <td>{{ log.download_speed }}</td>
+            <td>{{ log.upload_speed }}</td>
+            <td style="font-size: 0.8em; color: #aaa;">{{ log.src_ip }} -> {{ log.dst_ip }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}
