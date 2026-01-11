@@ -1,23 +1,30 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>NetSentry Cloud</title>
-    <style>
-        body { font-family: sans-serif; background: #222; color: #eee; margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: #333; padding: 20px; border-radius: 8px; }
-        input { width: 100%; padding: 10px; margin: 5px 0; background: #444; border: none; color: white; }
-        button { width: 100%; padding: 10px; background: #00d1b2; border: none; color: white; cursor: pointer; font-weight: bold; }
-        button:hover { background: #00c4a7; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { padding: 10px; text-align: left; border-bottom: 1px solid #555; }
-        th { color: #00d1b2; }
-        .nav { margin-bottom: 20px; display: flex; justify-content: space-between; }
-        a { color: #00d1b2; text-decoration: none; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        {% block content %}{% endblock %}
+{% extends "base.html" %}
+
+{% block content %}
+<div style="max-width: 400px; margin: 60px auto;">
+    <div class="text-center" style="margin-bottom: 30px;">
+        <h1 style="color: var(--accent); margin-bottom: 10px;">NetSentry</h1>
+        <p class="text-muted">Sign in to view your traffic logs</p>
     </div>
-</body>
-</html>
+
+    <div class="card">
+        <form method="POST">
+            <div class="form-group">
+                <label>Username</label>
+                <input type="text" name="username" placeholder="Enter your username" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Password</label>
+                <input type="password" name="password" placeholder="Enter your password" required>
+            </div>
+            
+            <button type="submit" class="mt-4">Login</button>
+        </form>
+    </div>
+
+    <p class="text-center mt-4">
+        Don't have an account? <a href="{{ url_for('register') }}">Create one</a>
+    </p>
+</div>
+{% endblock %}
