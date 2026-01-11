@@ -4,8 +4,8 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <div id="dashboard-container" 
-     hx-get="{{ url_for('dashboard') }}" 
-     hx-trigger="every 5s" 
+     hx-get="{{ url_for('dashboard_update') }}?v=1" 
+     hx-trigger="every 1s" 
      hx-swap="innerHTML">
     
     {% include "dashboard_content.html" %}

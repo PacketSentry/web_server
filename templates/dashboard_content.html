@@ -17,9 +17,13 @@
 </div>
 
 <div class="grid-2">
-    <div class="card">
+    <div class="card" style="min-width: 0; overflow: hidden;">
         <h3>Live Traffic</h3>
-        <canvas id="trafficChart" height="150"></canvas>
+        
+        <div style="position: relative; height: 150px; width: 100%; overflow: hidden;">
+            <canvas id="trafficChart"></canvas>
+        </div>
+
         <div style="margin-top: 10px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between;">
             <span style="color: #48c774;">Down: {{ "%.1f"|format(total_down) }} KB/s</span>
             <span style="color: #00d1b2;">Up: {{ "%.1f"|format(total_up) }} KB/s</span>
@@ -88,7 +92,14 @@
 </div>
 
 <script>
-    new Chart(document.getElementById('trafficChart'), {
+    // CLEANUP: Always destroy the previous chart instance
+    if (window.trafficChartInstance) {
+        window.trafficChartInstance.destroy();
+    }
+
+    var ctx = document.getElementById('trafficChart').getContext('2d');
+    
+    window.trafficChartInstance = new Chart(ctx, {
         type: 'doughnut',
         data: {
             labels: ['Download', 'Upload'],
@@ -99,7 +110,9 @@
             }]
         },
         options: { 
-            animation: false, // Disable animation for smoother updates
+            responsive: true,
+            maintainAspectRatio: false, 
+            animation: false,
             cutout: '70%', 
             plugins: { legend: { position: 'right', labels: { color: 'white' } } } 
         }
