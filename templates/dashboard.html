@@ -1,88 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<meta http-equiv="refresh" content="5">
+<script src="https://unpkg.com/htmx.org@1.9.6"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<div class="navbar">
-    <div class="brand">NetSentry</div>
-    <div class="nav-links">
-        <span style="font-size: 0.8rem; margin-right: 10px;">
-            {% if (datetime.utcnow() - user.last_seen).total_seconds() < 10 %}
-                <span style="color: #48c774;">● Online</span>
-            {% else %}
-                <span style="color: #ff3860;">● Offline</span>
-            {% endif %}
-        </span>
-        <a href="{{ url_for('logout') }}" style="color: var(--danger);">Logout</a>
-    </div>
+<div id="dashboard-container" 
+     hx-get="{{ url_for('dashboard') }}" 
+     hx-trigger="every 5s" 
+     hx-swap="innerHTML">
+    
+    {% include "dashboard_content.html" %}
+
 </div>
-
-<div class="grid-2">
-    <div class="card">
-        <h3>Live Traffic</h3>
-        <canvas id="trafficChart" height="150"></canvas>
-        <div style="margin-top: 10px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between;">
-            <span style="color: #48c774;">Down: {{ "%.1f"|format(total_down) }} KB/s</span>
-            <span style="color: #00d1b2;">Up: {{ "%.1f"|format(total_up) }} KB/s</span>
-        </div>
-    </div>
-
-    <div class="card" style="max-height: 350px; overflow-y: auto;">
-        <h3>Active Apps</h3>
-        {% if live_apps %}
-        <table style="min-width: 100%;">
-            {% for app in live_apps %}
-            <tr>
-                <td style="font-weight: 500;">{{ app.name }}</td>
-                <td style="color: #48c774; text-align: right;">{{ "%.1f"|format(app.down) }}</td>
-                <td style="text-align: right;">
-                    <a href="{{ url_for('kill_app', app_name=app.name) }}" 
-                       style="background: var(--danger); color: white; padding: 5px 10px; border-radius: 4px; text-decoration: none; font-size: 0.8rem;"
-                       onclick="return confirm('Force close {{ app.name }}?');">
-                       Close
-                    </a>
-                </td>
-            </tr>
-            {% endfor %}
-        </table>
-        {% else %}
-        <p style="text-align: center; color: #777;">No active traffic.</p>
-        {% endif %}
-    </div>
-</div>
-
-<div class="card">
-    <h3>History</h3>
-    <div class="table-wrap">
-        <table>
-            <thead>
-                <tr>
-                    <th>Time</th><th>App</th><th>Down</th><th>Up</th><th>Target</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for log in logs %}
-                <tr>
-                    <td>{{ log.timestamp.strftime('%H:%M:%S') }}</td>
-                    <td>{{ log.app_name }}</td>
-                    <td>{{ "%.1f"|format(log.download_speed) }}</td>
-                    <td>{{ "%.1f"|format(log.upload_speed) }}</td>
-                    <td style="font-size: 0.8rem; color: #888;">{{ log.dst_ip }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    new Chart(document.getElementById('trafficChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Download', 'Upload'],
-            datasets: [{ data: [{{ total_down }}, {{ total_up }}], backgroundColor: ['#48c774', '#00d1b2'], borderWidth: 0 }]
-        },
-        options: { cutout: '70%', plugins: { legend: { position: 'right', labels: { color: 'white' } } } }
-    });
-</script>
 {% endblock %}
