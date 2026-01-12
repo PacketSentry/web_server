@@ -1,3 +1,9 @@
+<style>
+    /* Animation for smooth text updates */
+    .fade-text { animation: fadeIn 0.5s ease-in-out; }
+    @keyframes fadeIn { from { opacity: 0.5; } to { opacity: 1; } }
+</style>
+
 <div class="navbar">
     <div class="brand">Packet Sentry</div>
     <div class="nav-links">
@@ -20,13 +26,13 @@
     <div class="card" style="min-width: 0; overflow: hidden;">
         <h3>Live Traffic</h3>
         
-        <div style="position: relative; height: 150px; width: 100%; overflow: hidden;">
+        <div id="chart-wrapper" hx-preserve style="position: relative; height: 150px; width: 100%; overflow: hidden;">
             <canvas id="trafficChart"></canvas>
         </div>
 
-        <div style="margin-top: 10px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between;">
+        <div class="fade-text" style="margin-top: 10px; font-weight: bold; font-size: 0.9rem; display: flex; justify-content: space-between;">
             <span style="color: #48c774;">Down: {{ "%.1f"|format(total_down) }} KB/s</span>
-            <span style="color: #00d1b2;">Up: {{ "%.1f"|format(total_up) }} KB/s</span>
+            <span style="color: #3298dc;">Up: {{ "%.1f"|format(total_up) }} KB/s</span>
         </div>
     </div>
 
@@ -35,7 +41,7 @@
         {% if is_online and live_apps %}
             <table style="min-width: 100%;">
                 {% for app in live_apps %}
-                <tr>
+                <tr class="fade-text">
                     <td style="font-weight: 500;">{{ app.name }}</td>
                     <td style="color: #48c774; text-align: right;">{{ "%.1f"|format(app.down) }}</td>
                     <td style="text-align: right;">
@@ -49,7 +55,7 @@
                 {% endfor %}
             </table>
         {% else %}
-            <p style="text-align: center; color: #777; margin-top: 20px;">
+            <p class="fade-text" style="text-align: center; color: #777; margin-top: 20px;">
                 {% if not is_online %}
                     Client is offline.
                 {% else %}
@@ -70,7 +76,7 @@
                         <th>Time</th><th>App</th><th>Down</th><th>Up</th><th>Target</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="fade-text">
                     {% for log in logs %}
                     <tr>
                         <td>{{ log.timestamp.strftime('%H:%M:%S') }}</td>
@@ -92,29 +98,38 @@
 </div>
 
 <script>
-    // CLEANUP: Always destroy the previous chart instance
-    if (window.trafficChartInstance) {
-        window.trafficChartInstance.destroy();
-    }
-
-    var ctx = document.getElementById('trafficChart').getContext('2d');
+    var newDown = {{ total_down|default(0) }};
+    var newUp = {{ total_up|default(0) }};
     
-    window.trafficChartInstance = new Chart(ctx, {
-        type: 'doughnut',
-        data: {
-            labels: ['Download', 'Upload'],
-            datasets: [{ 
-                data: [{{ total_down|default(0) }}, {{ total_up|default(0) }}], 
-                backgroundColor: ['#48c774', '#00d1b2'], 
-                borderWidth: 0 
-            }]
-        },
-        options: { 
-            responsive: true,
-            maintainAspectRatio: false, 
-            animation: false,
-            cutout: '70%', 
-            plugins: { legend: { position: 'right', labels: { color: 'white' } } } 
-        }
-    });
+    // Check if chart exists (hx-preserve keeps it alive)
+    if (window.trafficChartInstance) {
+        window.trafficChartInstance.data.datasets[0].data = [newDown, newUp];
+        // Ensure colors update dynamically if you refresh the code
+        window.trafficChartInstance.data.datasets[0].backgroundColor = ['#48c774', '#3298dc'];
+        window.trafficChartInstance.update({
+            duration: 800,
+            easing: 'easeOutQuart'
+        });
+    } else {
+        var ctx = document.getElementById('trafficChart').getContext('2d');
+        window.trafficChartInstance = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Download', 'Upload'],
+                datasets: [{ 
+                    data: [newDown, newUp], 
+                    // COLOR CHANGE APPLIED HERE
+                    backgroundColor: ['#48c774', '#3298dc'], 
+                    borderWidth: 0 
+                }]
+            },
+            options: { 
+                responsive: true,
+                maintainAspectRatio: false, 
+                animation: { duration: 1000 },
+                cutout: '70%', 
+                plugins: { legend: { position: 'right', labels: { color: 'white' } } } 
+            }
+        });
+    }
 </script>
