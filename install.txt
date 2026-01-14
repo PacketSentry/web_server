@@ -1,5 +1,10 @@
-flask
-flask-sqlalchemy
-flask-login
+fastapi
+uvicorn[standard]
+sqlalchemy
+jinja2
+python-multipart
+python-jose
+cryptography
 werkzeug
-pyjwt
+itsdangerous
+requests
