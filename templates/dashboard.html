@@ -1,14 +1,179 @@
 {% extends "base.html" %}
+
 {% block content %}
-<script src="https://unpkg.com/htmx.org@1.9.6"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<div id="dashboard-container" 
-     hx-get="{{ url_for('dashboard_update') }}?v=1" 
-     hx-trigger="every 1s" 
-     hx-swap="innerHTML">
-    
-    {% include "dashboard_content.html" %}
+<div class="row">
+    <div class="col-md-4">
+        
+        <div class="card p-3 mb-3 shadow-sm">
+            <h4>Client Status</h4>
+            <div id="status-alert" class="alert alert-secondary py-2" style="min-height: 50px; display: flex; align-items: center;">
+                Loading...
+            </div>
+            <p class="mb-1"><strong>Top App:</strong> <span id="top-app">---</span></p>
+            <p class="mb-1"><strong>Download:</strong> <span id="total-down" class="text-success">0.0 KB/s</span></p>
+            <p class="mb-1"><strong>Upload:</strong> <span id="total-up" class="text-primary">0.0 KB/s</span></p>
+        </div>
 
+        <div class="card p-3 mb-3 shadow-sm">
+            <h4>Traffic Distribution</h4>
+            <div style="height: 250px; position: relative;">
+                <canvas id="trafficChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card p-3 mb-3 shadow-sm" style="max-height: 550px; overflow-y: auto;">
+            <h4>Active Applications</h4>
+            <table class="table table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Application</th>
+                        <th>Down (KB/s)</th>
+                        <th>Up (KB/s)</th>
+                    </tr>
+                </thead>
+                <tbody id="app-list-body">
+                    </tbody>
+            </table>
+        </div>
+    </div>
 </div>
+
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card p-3 shadow-sm">
+            <h4>Traffic History (Last 20)</h4>
+            <div class="table-responsive">
+                <table class="table table-bordered table-striped">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Time</th>
+                            <th>Application</th>
+                            <th>Size (Bytes)</th>
+                            <th>Direction</th>
+                            <th>Remote IP</th>
+                        </tr>
+                    </thead>
+                    <tbody id="logs-body">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Initialize Chart ---
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+    const trafficChart = new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: ['Download', 'Upload'],
+            datasets: [{
+                data: [1, 1], // Placeholder to show empty chart initially
+                backgroundColor: ['#198754', '#0d6efd'], // Success Green, Primary Blue
+                hoverOffset: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false, // Critical for fitting in the container
+            plugins: {
+                legend: { position: 'bottom' }
+            }
+        }
+    });
+
+    // --- Dynamic Update Function ---
+    async function updateDashboard() {
+        try {
+            const response = await fetch('/api/dashboard-data');
+            if (response.status === 401) {
+                window.location.href = "/"; // Redirect if logged out
+                return;
+            }
+            const data = await response.json();
+
+            // 1. Update Status
+            const alertBox = document.getElementById('status-alert');
+            if (data.is_online) {
+                alertBox.className = "alert alert-success py-2";
+                alertBox.textContent = "✅ Client Online";
+            } else {
+                alertBox.className = "alert alert-danger py-2";
+                alertBox.textContent = "❌ Client Offline (Last seen: " + new Date(data.last_seen * 1000).toLocaleTimeString() + ")";
+            }
+            
+            document.getElementById('top-app').textContent = data.top_app;
+            document.getElementById('total-down').textContent = data.current_down.toFixed(1) + " KB/s";
+            document.getElementById('total-up').textContent = data.current_up.toFixed(1) + " KB/s";
+
+            // 2. Update Pie Chart (Prevent 0/0 glitch)
+            let chartDown = data.current_down;
+            let chartUp = data.current_up;
+            if (chartDown === 0 && chartUp === 0) {
+                // Keep chart visible but empty if no traffic
+                trafficChart.data.datasets[0].data = [0.1, 0.1]; 
+                trafficChart.data.datasets[0].backgroundColor = ['#e9ecef', '#e9ecef']; // Grey out
+            } else {
+                trafficChart.data.datasets[0].data = [chartDown, chartUp];
+                trafficChart.data.datasets[0].backgroundColor = ['#198754', '#0d6efd']; // Restore colors
+            }
+            trafficChart.update();
+
+            // 3. Update App List
+            const appBody = document.getElementById('app-list-body');
+            appBody.innerHTML = ""; // Clear existing
+            if (data.app_list && data.app_list.length > 0) {
+                data.app_list.forEach(app => {
+                    const row = document.createElement('tr');
+                    let downClass = app.down > 0 ? "fw-bold text-success" : "text-muted";
+                    let upClass = app.up > 0 ? "fw-bold text-primary" : "text-muted";
+                    
+                    row.innerHTML = `
+                        <td>${app.name}</td>
+                        <td class="${downClass}">${app.down.toFixed(1)}</td>
+                        <td class="${upClass}">${app.up.toFixed(1)}</td>
+                    `;
+                    appBody.appendChild(row);
+                });
+            } else {
+                appBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No active applications.</td></tr>`;
+            }
+
+            // 4. Update Logs
+            const logsBody = document.getElementById('logs-body');
+            logsBody.innerHTML = "";
+            if (data.logs && data.logs.length > 0) {
+                data.logs.forEach(log => {
+                    const row = document.createElement('tr');
+                    let dirBadge = log.direction === 'Incoming' 
+                        ? '<span class="badge bg-success">Incoming</span>' 
+                        : '<span class="badge bg-primary">Outgoing</span>';
+
+                    row.innerHTML = `
+                        <td>${log.timestamp}</td>
+                        <td>${log.app_name}</td>
+                        <td>${log.packet_size}</td>
+                        <td>${dirBadge}</td>
+                        <td class="font-monospace">${log.ip_address}</td>
+                    `;
+                    logsBody.appendChild(row);
+                });
+            } else {
+                logsBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No history found.</td></tr>`;
+            }
+
+        } catch (error) {
+            console.error("Error fetching data:", error);
+        }
+    }
+
+    // Run immediately and then every 2 seconds
+    updateDashboard();
+    setInterval(updateDashboard, 2000);
+</script>
 {% endblock %}
