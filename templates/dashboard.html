@@ -5,15 +5,14 @@
 
 <div class="row">
     <div class="col-md-4">
-        
         <div class="card p-3 mb-3 shadow-sm">
             <h4>Client Status</h4>
             <div id="status-alert" class="alert alert-secondary py-2" style="min-height: 50px; display: flex; align-items: center;">
                 Loading...
             </div>
             <p class="mb-1"><strong>Top App:</strong> <span id="top-app">---</span></p>
-            <p class="mb-1"><strong>Download:</strong> <span id="total-down" class="text-success">0.0 KB/s</span></p>
-            <p class="mb-1"><strong>Upload:</strong> <span id="total-up" class="text-primary">0.0 KB/s</span></p>
+            <p class="mb-1"><strong>Download:</strong> <span id="total-down" class="text-success">0.00 Mbps</span></p>
+            <p class="mb-1"><strong>Upload:</strong> <span id="total-up" class="text-primary">0.00 Mbps</span></p>
         </div>
 
         <div class="card p-3 mb-3 shadow-sm">
@@ -27,12 +26,13 @@
     <div class="col-md-8">
         <div class="card p-3 mb-3 shadow-sm" style="max-height: 550px; overflow-y: auto;">
             <h4>Active Applications</h4>
-            <table class="table table-sm table-hover">
+            <table class="table table-sm table-hover align-middle">
                 <thead class="table-light">
                     <tr>
                         <th>Application</th>
-                        <th>Down (KB/s)</th>
-                        <th>Up (KB/s)</th>
+                        <th>Down (Mbps)</th>
+                        <th>Up (Mbps)</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
                 <tbody id="app-list-body">
@@ -45,7 +45,12 @@
 <div class="row mt-4">
     <div class="col-12">
         <div class="card p-3 shadow-sm">
-            <h4>Traffic History (Last 20)</h4>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="mb-0">Traffic History (Last 20)</h4>
+                <a href="/api/export-csv" target="_blank" class="btn btn-outline-primary">
+                    📥 Export Full CSV
+                </a>
+            </div>
             <div class="table-responsive">
                 <table class="table table-bordered table-striped">
                     <thead class="table-dark">
@@ -66,85 +71,105 @@
 </div>
 
 <script>
-    // --- Initialize Chart ---
+    // --- KILL APP FUNCTION ---
+    async function killApp(appName) {
+        if (!confirm("Are you sure you want to KILL " + appName + "?\nThis will stop the process on the remote machine.")) return;
+        
+        try {
+            const res = await fetch('/api/kill-app', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ app_name: appName })
+            });
+            
+            if (res.ok) {
+                alert("Kill command sent for " + appName + ".");
+            } else {
+                alert("Failed to send command.");
+            }
+        } catch (e) {
+            alert("Error: " + e);
+        }
+    }
+
+    // --- Chart Logic ---
     const ctx = document.getElementById('trafficChart').getContext('2d');
     const trafficChart = new Chart(ctx, {
         type: 'pie',
         data: {
             labels: ['Download', 'Upload'],
             datasets: [{
-                data: [1, 1], // Placeholder to show empty chart initially
-                backgroundColor: ['#198754', '#0d6efd'], // Success Green, Primary Blue
+                data: [1, 1], 
+                backgroundColor: ['#198754', '#0d6efd'], 
                 hoverOffset: 4
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false, // Critical for fitting in the container
-            plugins: {
-                legend: { position: 'bottom' }
-            }
+            maintainAspectRatio: false, 
+            plugins: { legend: { position: 'bottom' } }
         }
     });
 
-    // --- Dynamic Update Function ---
+    // --- Dynamic Update ---
     async function updateDashboard() {
         try {
             const response = await fetch('/api/dashboard-data');
-            if (response.status === 401) {
-                window.location.href = "/"; // Redirect if logged out
-                return;
-            }
+            if (response.status === 401) { window.location.href = "/"; return; }
             const data = await response.json();
 
-            // 1. Update Status
+            // Status
             const alertBox = document.getElementById('status-alert');
             if (data.is_online) {
                 alertBox.className = "alert alert-success py-2";
                 alertBox.textContent = "✅ Client Online";
             } else {
                 alertBox.className = "alert alert-danger py-2";
-                alertBox.textContent = "❌ Client Offline (Last seen: " + new Date(data.last_seen * 1000).toLocaleTimeString() + ")";
+                alertBox.textContent = "❌ Client Offline";
             }
             
             document.getElementById('top-app').textContent = data.top_app;
-            document.getElementById('total-down').textContent = data.current_down.toFixed(1) + " KB/s";
-            document.getElementById('total-up').textContent = data.current_up.toFixed(1) + " KB/s";
+            let downMbps = (data.current_down * 8) / 1024;
+            let upMbps = (data.current_up * 8) / 1024;
+            document.getElementById('total-down').textContent = downMbps.toFixed(2) + " Mbps";
+            document.getElementById('total-up').textContent = upMbps.toFixed(2) + " Mbps";
 
-            // 2. Update Pie Chart (Prevent 0/0 glitch)
-            let chartDown = data.current_down;
-            let chartUp = data.current_up;
-            if (chartDown === 0 && chartUp === 0) {
-                // Keep chart visible but empty if no traffic
+            // Chart
+            if (downMbps === 0 && upMbps === 0) {
                 trafficChart.data.datasets[0].data = [0.1, 0.1]; 
-                trafficChart.data.datasets[0].backgroundColor = ['#e9ecef', '#e9ecef']; // Grey out
+                trafficChart.data.datasets[0].backgroundColor = ['#e9ecef', '#e9ecef']; 
             } else {
-                trafficChart.data.datasets[0].data = [chartDown, chartUp];
-                trafficChart.data.datasets[0].backgroundColor = ['#198754', '#0d6efd']; // Restore colors
+                trafficChart.data.datasets[0].data = [downMbps, upMbps];
+                trafficChart.data.datasets[0].backgroundColor = ['#198754', '#0d6efd']; 
             }
             trafficChart.update();
 
-            // 3. Update App List
+            // App List
             const appBody = document.getElementById('app-list-body');
-            appBody.innerHTML = ""; // Clear existing
+            appBody.innerHTML = ""; 
             if (data.app_list && data.app_list.length > 0) {
                 data.app_list.forEach(app => {
                     const row = document.createElement('tr');
-                    let downClass = app.down > 0 ? "fw-bold text-success" : "text-muted";
-                    let upClass = app.up > 0 ? "fw-bold text-primary" : "text-muted";
+                    let appDown = (app.down * 8) / 1024;
+                    let appUp = (app.up * 8) / 1024;
+                    let downClass = appDown > 0 ? "fw-bold text-success" : "text-muted";
+                    let upClass = appUp > 0 ? "fw-bold text-primary" : "text-muted";
                     
                     row.innerHTML = `
                         <td>${app.name}</td>
-                        <td class="${downClass}">${app.down.toFixed(1)}</td>
-                        <td class="${upClass}">${app.up.toFixed(1)}</td>
+                        <td class="${downClass}">${appDown.toFixed(2)}</td>
+                        <td class="${upClass}">${appUp.toFixed(2)}</td>
+                        <td>
+                            <button class="btn btn-sm btn-danger" onclick="killApp('${app.name}')">Kill</button>
+                        </td>
                     `;
                     appBody.appendChild(row);
                 });
             } else {
-                appBody.innerHTML = `<tr><td colspan="3" class="text-center text-muted">No active applications.</td></tr>`;
+                appBody.innerHTML = `<tr><td colspan="4" class="text-center text-muted">No active applications.</td></tr>`;
             }
 
-            // 4. Update Logs
+            // Logs
             const logsBody = document.getElementById('logs-body');
             logsBody.innerHTML = "";
             if (data.logs && data.logs.length > 0) {
@@ -167,12 +192,8 @@
                 logsBody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No history found.</td></tr>`;
             }
 
-        } catch (error) {
-            console.error("Error fetching data:", error);
-        }
+        } catch (error) { console.error(error); }
     }
-
-    // Run immediately and then every 2 seconds
     updateDashboard();
     setInterval(updateDashboard, 2000);
 </script>
